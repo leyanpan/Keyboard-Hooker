@@ -68,7 +68,6 @@
     <ClCompile Include="KHook.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="C:\Users\ply\Desktop\Computer\KHook\KHook\ProcessTrace.h" />
     <ClInclude Include="mail.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>

